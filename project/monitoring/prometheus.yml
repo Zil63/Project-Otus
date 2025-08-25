@@ -1,0 +1,108 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Файлы с правилами алертов
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+# Конфигурация scrape targets
+scrape_configs:
+  # ─────────────────────────────
+  # Существующие targets (Node Exporters)
+  # ─────────────────────────────
+  - job_name: 'dynamicweb-node'
+    static_configs:
+      - targets: ['node_exporter_web:9100']
+    metrics_path: /metrics
+
+  - job_name: 'monitoring-node'
+    static_configs:
+      - targets: ['node_exporter_mon:9100']
+    metrics_path: /metrics
+   # Внешняя ВМ DynamicWeb
+  # ─────────────────────────────
+  - job_name: 'external-dynamicweb-node'
+    static_configs:
+      - targets: ['192.168.56.10:9102']  # Правильный IP DynamicWeb
+        labels:
+          env: 'production'
+          host: 'dynamicweb-external'
+
+
+  # ─────────────────────────────
+  # ДОПОЛНИТЕЛЬНЫЕ TARGETS
+  # ─────────────────────────────
+  
+  # Self-monitoring Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+
+  # Alertmanager monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    metrics_path: /metrics
+
+  # MySQL monitoring
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['mysqld_exporter:9104']
+    metrics_path: /metrics
+
+  # cAdvisor для мониторинга Docker контейнеров
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: /metrics
+
+  # Blackbox exporter для проверки доступности
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://nginx:80
+        - http://python_app:8000
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Blackbox для проверки TCP портов
+  - job_name: 'blackbox-tcp'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+        - database:3306
+        - nginx:443
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Мониторинг самого Blackbox exporter
+  - job_name: 'blackbox-exporter'
+    static_configs:
+      - targets: ['blackbox-exporter:9115']
+    metrics_path: /metrics
+
+# Настройки Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      scheme: http
+      timeout: 10s
+      api_version: v2

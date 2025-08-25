@@ -1,0 +1,32 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'telegram-notifications'
+
+receivers:
+- name: 'telegram-notifications'
+  telegram_configs:
+  - bot_token: '8497809072:AAFfDHeHdvFxG2xFrdX-GOQpQR5O-__ARvU'
+    chat_id: 315679511
+    parse_mode: 'HTML'
+    send_resolved: true
+    message: |
+      {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} *[{{ .Status | toUpper }}]* {{ .CommonLabels.alertname }}
+      
+      📋 *Summary:* 
+      {{ .CommonAnnotations.summary }}
+      
+      📝 *Description:* 
+      {{ .CommonAnnotations.description }}
+      
+      🏷️ *Labels:*
+      {{ range .CommonLabels }}
+      • {{ .Name }} = {{ .Value }}
+      {{ end }}
+      
+      🕐 *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
